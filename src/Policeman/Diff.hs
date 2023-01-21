@@ -3,7 +3,10 @@ module Policeman.Diff
     , prettyPrintDiff
     ) where
 
-import Data.Set (member, (\\))
+import Data.Set (member, (\\), Set)
+import Data.List (foldl')
+import qualified Data.Text as Text
+import qualified Data.Text.IO as Text
 
 import Policeman.ColorTerminal (boldText, errorMessage, infoMessage, skipMessage, successMessage)
 import Policeman.Core.Diff (Diff (..), PackageDiff (..), emptyDiff, hasDiffAdded, hasDiffDeleted)
@@ -12,6 +15,8 @@ import Policeman.Core.Version (Version, versionText, versionToText)
 import Policeman.Evaluate (Evaluation (..))
 
 import qualified Data.HashMap.Strict as HM
+import Data.HashMap.Strict (HashMap)
+import Control.Monad (when, forM_)
 
 
 {- | Compares the structure of the previous version with the current one.
@@ -76,13 +81,13 @@ prettyPrintDiff prevVersion Evaluation{..} PackageDiff{..} = do
                 successMessage "    Added exports:"
                 printExport diffAdded
 
-    putTextLn ""
-    putText     "🔄 Type of change:        " *> boldText (show evaluationChange <> "\n")
-    putTextLn $ "👵 Previous version:      " <> versionText prevVersion
-    putTextLn $ "💎 Suggested new version: " <> versionToText evaluationVersion
+    Text.putStrLn ""
+    Text.putStr     "🔄 Type of change:        " *> boldText (Text.pack (show evaluationChange) <> "\n")
+    Text.putStrLn $ "👵 Previous version:      " <> versionText prevVersion
+    Text.putStrLn $ "💎 Suggested new version: " <> versionToText evaluationVersion
   where
     printModule :: Set Module -> IO ()
-    printModule = mapM_ (putTextLn . ("    " <>) . unModule)
+    printModule = mapM_ (Text.putStrLn . ("    " <>) . unModule)
 
     printExport :: Set Export -> IO ()
-    printExport = mapM_ (putTextLn . ("        " <> ) . show)
+    printExport = mapM_ (Text.putStrLn . ("        " <> ) . Text.pack . show)

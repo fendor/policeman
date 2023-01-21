@@ -2,7 +2,7 @@ module Policeman.Run
     ( runPoliceman
     ) where
 
-import Control.Monad.Except (throwError)
+import Control.Monad.Except (throwError, ExceptT, runExceptT)
 import Control.Monad.Trans.Except (withExceptT)
 import System.Directory (getCurrentDirectory)
 
@@ -19,6 +19,7 @@ import Policeman.Evaluate (eval)
 import Policeman.Hie (createHieFiles)
 
 import qualified Data.Set as Set
+import Control.Monad.IO.Class (liftIO)
 
 
 data PolicemanError
@@ -28,7 +29,9 @@ data PolicemanError
 
 -- | Runs the tool based on the CLI input.
 runPoliceman :: CliArgs -> IO ()
-runPoliceman CliArgs{..} = whenLeftM_ (runExceptT findNextVersion) print
+runPoliceman CliArgs{..} = runExceptT findNextVersion >>= \case
+    Left err -> print err
+    Right () -> pure ()
   where
     findNextVersion :: ExceptT PolicemanError IO ()
     findNextVersion = do
@@ -47,8 +50,9 @@ getLatestHackageVersion :: PackageName -> ExceptT PolicemanError IO Version
 getLatestHackageVersion packageName = do
     cabalContent <- withExceptT DError $ getLatestHackageCabalFileContent packageName
     packageDesc  <- withExceptT CError $ parseCabalFile cabalContent
-    whenNothing (extractPackageVersion packageDesc) $
-        throwError $ CError CabalParseError
+    case (extractPackageVersion packageDesc) of
+        Nothing -> throwError $ CError CabalParseError
+        Just v -> pure v
 
 diffWith
     :: Version

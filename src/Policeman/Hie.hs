@@ -3,14 +3,17 @@ module Policeman.Hie
     , readHieFiles
     ) where
 
-import HieBin (HieFileResult (hie_file_result), readHieFile)
-import HieTypes (HieFile)
-import NameCache (NameCache, initNameCache)
-import Shellmet ()
+
 import System.Directory (doesFileExist, getCurrentDirectory, setCurrentDirectory)
 import System.Directory.Recursive (getDirRecursive)
 import System.FilePath ((</>))
-import UniqSupply (mkSplitUniqSupply)
+import GHC.Iface.Ext.Types
+import GHC.Types.Name.Cache
+import GHC.Iface.Ext.Binary
+import Control.Monad (filterM, forM, void)
+import Data.Text (Text)
+import qualified Data.Text as Text
+import qualified System.Process as Process
 
 
 {- | Generates HIE files for the project in the given folder and
@@ -27,8 +30,8 @@ createHieFiles projectDir = do
     -- See discussion: https://github.com/kowainik/policeman/issues/52
     writeFile "cabal.project" "packages: ."
 
-    "cabal" ["clean"]
-    "cabal"
+    readProcess_ "cabal" ["clean"]
+    readProcess_ "cabal"
         [ "v2-build"
         , "--ghc-options=-fwrite-ide-info"
         , "--ghc-options=-hiedir=.hie"
@@ -42,14 +45,12 @@ directory from the @.hie/@ folder.
 readHieFiles :: IO [HieFile]
 readHieFiles = do
     hieDir <- (</> ".hie") <$> getCurrentDirectory
-    nameCache <- createNameCache
+    nameCache <- initNameCache 'z' []
     hieContent <- getDirRecursive hieDir
     hieFiles <- filterM doesFileExist hieContent
     forM hieFiles $ \hiePath -> do
-        (hieFileResult, _newCache) <- readHieFile nameCache hiePath
+        hieFileResult <- readHieFile nameCache hiePath
         pure $ hie_file_result hieFileResult
 
-createNameCache :: IO NameCache
-createNameCache = do
-    uniqSupply <- mkSplitUniqSupply 'z'
-    pure $ initNameCache uniqSupply []
+readProcess_ :: FilePath -> [Text] -> IO ()
+readProcess_ fp args = void $ Process.readProcess fp (map Text.unpack args) ""

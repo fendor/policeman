@@ -11,7 +11,9 @@ module Policeman.Core.Diff
 
 import Policeman.Core.Package (Export, Module)
 
+import Data.Set (Set)
 import qualified Data.Set as Set
+import Data.HashMap.Strict (HashMap)
 
 
 data PackageDiff = PackageDiff

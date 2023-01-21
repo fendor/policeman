@@ -1,5 +1,6 @@
 {- | Unit tests for the cabal spec
 -}
+{-# LANGUAGE PartialTypeSignatures #-}
 
 module Test.Policeman.Cabal
     ( cabalSpec
@@ -11,9 +12,11 @@ import System.FilePath ((</>))
 import Test.Hspec (Spec, describe, it, runIO, shouldReturn, shouldSatisfy)
 
 import Policeman.Cabal (CabalError (..), findCabalDescription)
+import Data.Either (isRight)
+import Control.Monad.Trans.Except (runExceptT)
 
 
-cabalSpec :: Spec
+cabalSpec ::  Spec
 cabalSpec = describe "Cabal parsing" $ do
     curDir <- runIO getCurrentDirectory
 

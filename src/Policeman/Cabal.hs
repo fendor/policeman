@@ -10,7 +10,7 @@ module Policeman.Cabal
     , extractPackageVersion
     ) where
 
-import Control.Monad.Except (throwError)
+import Control.Monad.Except (throwError, ExceptT)
 import Distribution.ModuleName (ModuleName, components)
 import Distribution.PackageDescription (CondTree (..), GenericPackageDescription (..), Library (..),
                                         PackageDescription (..))
@@ -24,6 +24,15 @@ import Policeman.Core.Package (Module (..), PackageName (..))
 import Policeman.Core.Version (Version, versionFromIntList)
 
 import qualified Distribution.Types.PackageName as Cabal
+import Data.List.NonEmpty (NonEmpty)
+import qualified Data.List.NonEmpty as NE
+import Data.ByteString (ByteString)
+import Control.Monad.IO.Class (liftIO)
+import qualified Data.ByteString as BS
+import qualified Data.Text as Text
+import Control.Monad.Extra ( unlessM )
+import Data.Maybe (maybeToList)
+import Data.List (intercalate)
 
 
 {- | Errors about dealing with @.cabal@ files.
@@ -51,19 +60,21 @@ findCabalDescription dirPath = do
         [] -> throwError $ NoCabalFile dirPath
         [cabalFile] -> do
             let cabalPath = dirPath </> cabalFile
-            cabalContent <- readFileBS cabalPath
+            cabalContent <- liftIO $ BS.readFile cabalPath
             parseCabalFile cabalContent
-        x:xs -> throwError $ MultipleCabalFiles (x :| xs)
+        x:xs -> throwError $ MultipleCabalFiles (x NE.:| xs)
 
 -- | Parses the given cabal file source and returns 'GenericPackageDescription'
 parseCabalFile :: ByteString -> ExceptT CabalError IO GenericPackageDescription
-parseCabalFile cabalContent = whenNothing (parseGenericPackageDescriptionMaybe cabalContent) $
-    throwError CabalParseError  -- TODO: better error
+parseCabalFile cabalContent = case parseGenericPackageDescriptionMaybe cabalContent of
+    Nothing -> throwError CabalParseError  -- TODO: better error
+    Just gpd -> pure gpd
 
 extractPackageName :: GenericPackageDescription -> PackageName
 extractPackageName =
     PackageName
-    . toText
+    . Text.pack
+    . show
     . Cabal.unPackageName
     . pkgName
     . package
@@ -85,4 +96,5 @@ extractExposedModules =
     . condLibrary
   where
     toModule :: ModuleName -> Module
-    toModule = Module . toText . intercalate "." . components
+    toModule = Module . Text.pack . intercalate "." . components
+

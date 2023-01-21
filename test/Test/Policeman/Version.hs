@@ -15,6 +15,8 @@ import Policeman.Core.Version (Version (..), versionFromIntList, versionFromText
 import qualified Data.Text as Text
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
+import Data.Maybe (isNothing)
+import Data.List (intercalate)
 
 
 -- | Version parsing unit tests.
@@ -70,7 +72,7 @@ genVersion = do
     versionC <- genInt
     versionD <- genInt
     pure Version
-        { versionText = Text.intercalate "." $ map show
+        { versionText = Text.pack . intercalate "." $ map show
             [ versionA
             , versionB
             , versionC

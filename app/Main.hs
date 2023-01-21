@@ -1,6 +1,6 @@
 module Main (main) where
 
-import System.IO (hSetEncoding, utf8)
+import System.IO (hSetEncoding, utf8, stdout)
 
 import Policeman (policeman)
 

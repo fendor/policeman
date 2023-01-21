@@ -8,15 +8,21 @@ module Policeman.Download.Hackage
     ) where
 
 import Control.Exception (catch)
-import Control.Monad.Trans.Except (withExceptT)
-import Shellmet (($?), ($|))
+import Control.Monad.Trans.Except (withExceptT, ExceptT(..))
 import System.Directory (createDirectoryIfMissing, getCurrentDirectory, removeDirectoryRecursive)
 import System.FilePath ((</>))
-import System.IO.Error (IOError, isDoesNotExistError)
+import System.IO.Error (isDoesNotExistError)
 
 import Policeman.Core.Package (PackageName (..))
 import Policeman.Core.Version (Version (versionText))
 import Policeman.Download.Common (DownloadError (..), evidenceDir)
+import Data.Text (Text)
+import qualified Data.Text as Text
+import qualified Data.Text.Encoding as Encoding
+import Data.ByteString (ByteString)
+import Control.Monad.IO.Class (liftIO)
+import qualified System.Process as Process
+import Control.Applicative ((<|>))
 
 
 {- | By the given pacakge name it downloads the latest `.cabal` file and
@@ -28,8 +34,7 @@ getLatestHackageCabalFileContent
     :: PackageName
     -> ExceptT DownloadError IO ByteString
 getLatestHackageCabalFileContent package@(PackageName packageName) = ExceptT $
-    (Right . encodeUtf8 <$> ("curl" $| ["--silent", url]))
-    $? pure (Left $ NoSuchPackage package)
+    (Right . Encoding.encodeUtf8 <$> (readProcess "curl" ["--silent", url])) <|> pure (Left $ NoSuchPackage package)
   where
     url :: Text
     url = mconcat
@@ -55,18 +60,18 @@ downloadFromHackage packageName@(PackageName name) (versionText -> version) = do
             , tarName
             ]
 
-    let tarPath = toText $ evidenceDir </> toString tarName
-    let srcPath = evidenceDir </> toString fullName
+    let tarPath = Text.pack $ evidenceDir </> Text.unpack tarName
+    let srcPath = evidenceDir </> Text.unpack fullName
     liftIO $ createDirectoryIfMissing True evidenceDir
     withExceptT SystemError $ removeDirIfExists srcPath
 
     -- download archive from Hackage
     ExceptT $
-        (Right <$> "curl" ["--silent", tarUrl, "--output", tarPath])
-        $? pure (Left $ NoSuchPackage packageName)
+        (Right <$> readProcess "curl" ["--silent", tarUrl, "--output", tarPath])
+        <|> pure (Left $ NoSuchPackage packageName)
 
     -- unpack
-    liftIO $ "tar" ["-xf", tarPath, "-C", toText evidenceDir]
+    liftIO $ readProcess "tar" ["-xf", tarPath, "-C", Text.pack evidenceDir]
     liftIO $ fmap (</> srcPath) getCurrentDirectory
 
 hackageUrl :: Text
@@ -80,3 +85,6 @@ removeDirIfExists fileName = ExceptT $
     handleExists e
         | isDoesNotExistError e = Right ()
         | otherwise = Left e
+
+readProcess :: FilePath -> [Text] -> IO Text
+readProcess fp args = Text.strip . Text.pack <$> Process.readProcess fp (map Text.unpack args) ""

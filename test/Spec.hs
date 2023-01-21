@@ -5,6 +5,7 @@ import Test.Hspec (describe, hspec)
 
 import Test.Policeman.Cabal (cabalSpec)
 import Test.Policeman.Version (versionRoundtripInts, versionRoundtripText, versionSpec)
+import System.Exit
 
 
 main :: IO ()

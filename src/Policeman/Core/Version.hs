@@ -20,6 +20,8 @@ module Policeman.Core.Version
     ) where
 
 import qualified Data.Text as Text
+import Data.Text (Text)
+import Text.Read (readMaybe)
 
 
 {- | Package version that should satisfy the PVP.
@@ -50,7 +52,7 @@ A.B.C.D
 @
 -}
 versionToText :: Version -> Text
-versionToText Version{..} = Text.intercalate "." $ map show
+versionToText Version{..} = Text.intercalate "." $ map (Text.pack . show)
     [ versionA
     , versionB
     , versionC
@@ -64,7 +66,7 @@ versionFromText (Text.strip -> txt) = maybeInts >>= \ints ->
     else (\ver -> ver{versionText = txt}) <$> versionFromIntList ints
   where
     maybeInts :: Maybe [Int]
-    maybeInts = mapM (readMaybe @Int . toString) $ Text.split (== '.') txt
+    maybeInts = mapM (readMaybe @Int . Text.unpack) $ Text.split (== '.') txt
 
 versionToIntList :: Version -> [Int]
 versionToIntList Version{..} =
@@ -81,7 +83,7 @@ versionFromIntList l@(x:xs) = Just $ mkVer x (toTriple xs)
   where
     mkVer :: Int -> (Int, Int, Int) -> Version
     mkVer versionA (versionB, versionC, versionD) = Version
-        { versionText = Text.intercalate "." $ map show l
+        { versionText = Text.intercalate "." $ map (Text.pack . show) l
         , ..
         }
 

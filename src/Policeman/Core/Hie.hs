@@ -7,18 +7,20 @@ module Policeman.Core.Hie
     , hieFilesToHashMap
     ) where
 
-import Avail (AvailInfo (..))
-import FastString (unpackFS)
-import FieldLabel (FieldLabel, FieldLbl (..))
-import HieTypes (HieFile (..))
-import Module (moduleName, moduleNameString)
-import Name (Name, nameOccName)
-import OccName (occNameString)
-
 import Policeman.Core.Package (Export (..), Module (..), ModuleStructure (..))
 
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Set as Set
+import qualified Data.Text as Text
+import GHC.Types.Avail (AvailInfo (..), partitionGreNames, GreName (..))
+import GHC.Types.Name (Name, nameOccName, occNameString)
+import GHC.Types.FieldLabel ( FieldLabel(..) )
+import GHC.Iface.Ext.Types ( HieFile(hie_module, hie_exports) )
+import GHC.Unit.Module.Name ( moduleNameString )
+import GHC.Unit.Types (moduleName)
+import GHC.Data.FastString (unpackFS)
+import Data.Text (Text)
+import Data.HashMap.Strict (HashMap)
 
 
 {- | Creates the list of 'Export's from the given 'AvailInfo'.
@@ -28,24 +30,29 @@ As the data type or type class can bring to export more than 1 entry
 data type or the type class as the prefix separated with the dot @.@.
 -}
 availInfoToExport :: AvailInfo -> [Export]
-availInfoToExport (Avail name) = [ExportedFunction $ nameToText name]
-availInfoToExport (AvailTC (nameToText -> name) pieces fields) =
+availInfoToExport (Avail name) = [ExportedFunction $ greNameToText name]
+availInfoToExport (AvailTC (nameToText -> name) grenames) =
     ExportedType name
     :  map piecesToExport pieces
     ++ map fieldsToExport fields
   where
+    (pieces, fields) = partitionGreNames grenames
+
     piecesToExport :: Name -> Export
     piecesToExport = addPrefixName . nameToText
 
     fieldsToExport :: FieldLabel -> Export
-    fieldsToExport FieldLabel{..} = addPrefixName $ toText $ unpackFS flLabel
+    fieldsToExport FieldLabel{..} = addPrefixName $ Text.pack $ unpackFS flLabel
 
     addPrefixName :: Text -> Export
     addPrefixName n = ExportedType $ name <> "." <> n
 
 nameToText :: Name -> Text
-nameToText = toText . occNameString . nameOccName
+nameToText = Text.pack . occNameString . nameOccName
 
+greNameToText :: GreName -> Text
+greNameToText (NormalGreName n) = nameToText n
+greNameToText (FieldGreName fl) = Text.pack $ unpackFS $ flLabel fl
 
 hieFileToModuleStructure :: HieFile -> ModuleStructure
 hieFileToModuleStructure hf = ModuleStructure
@@ -54,7 +61,7 @@ hieFileToModuleStructure hf = ModuleStructure
 
 
 hieFileToModule :: HieFile -> Module
-hieFileToModule = Module . toText . moduleNameString . moduleName . hie_module
+hieFileToModule = Module . Text.pack . moduleNameString . moduleName . hie_module
 
 hieFilesToHashMap :: [HieFile] -> HashMap Module ModuleStructure
 hieFilesToHashMap = HM.fromList . map (\hf -> (hieFileToModule hf, hieFileToModuleStructure hf))

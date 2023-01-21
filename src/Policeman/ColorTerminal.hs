@@ -23,14 +23,16 @@ module Policeman.ColorTerminal
 
 import System.Console.ANSI (Color (..), ColorIntensity (Vivid), ConsoleIntensity (BoldIntensity),
                             ConsoleLayer (Foreground), SGR (..), setSGR, setSGRCode)
-import System.IO (hFlush)
+import System.IO as IO (hFlush, stdout)
+import Data.Text
+import qualified Data.Text.IO as Text
 
 
 -- | Explicit flush ensures prompt messages are in the correct order on all systems.
 putStrFlush :: Text -> IO ()
 putStrFlush msg = do
-    putText msg
-    hFlush stdout
+    Text.putStr msg
+    IO.hFlush stdout
 
 setColor :: Color -> IO ()
 setColor color = setSGR [SetColor Foreground Vivid color]
@@ -46,13 +48,13 @@ italic = setSGR [SetItalicized True]
 reset :: IO ()
 reset = do
     setSGR [Reset]
-    hFlush stdout
+    IO.hFlush stdout
 
 -- | Takes list of formatting options, prints text using this format options.
 beautyPrint :: [IO ()] -> Text -> IO ()
 beautyPrint formats msg = do
     sequence_ formats
-    putText msg
+    Text.putStrLn msg
     reset
 
 boldText :: Text -> IO ()
@@ -64,7 +66,7 @@ boldDefault message = boldText (" [" <> message <> "]")
 colorMessage :: Color -> Text -> IO ()
 colorMessage color message = do
     setColor color
-    putTextLn $ "  " <> message
+    Text.putStrLn $ "  " <> message
     reset
 
 errorMessage, warningMessage, successMessage, infoMessage, skipMessage :: Text -> IO ()

@@ -13,6 +13,11 @@ module Policeman.Core.Package
     ) where
 
 
+import Data.Text
+import Data.Hashable
+import Data.HashMap.Strict
+import Data.Set
+
 {- | Package name, like @relude@.
 -}
 newtype PackageName = PackageName

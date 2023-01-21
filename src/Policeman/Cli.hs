@@ -17,6 +17,9 @@ import Options.Applicative (Parser, ParserInfo, fullDesc, help, helper, info, in
 import Policeman.ColorTerminal (blueCode, boldCode, resetCode)
 
 import qualified Paths_policeman as Meta (version)
+import Data.Text (Text)
+import Control.Applicative (optional)
+import Data.List (intercalate)
 
 
 newtype CliArgs = CliArgs
@@ -48,7 +51,7 @@ versionP = infoOption policemanVersion
    <> help "Show Policeman's badge number"
 
 policemanVersion :: String
-policemanVersion = toString $ intercalate "\n"
+policemanVersion = intercalate "\n"
     [ sVersion
     , sHash
     , sDate
