@@ -1,85 +1,93 @@
 {-# LANGUAGE NumericUnderscores #-}
 
-module Test.Policeman.Version
-    ( versionSpec
-    , versionRoundtripText
-    , versionRoundtripInts
-    ) where
+module Test.Policeman.Version (
+  versionSpec,
+  versionRoundtripText,
+  versionRoundtripInts,
+) where
 
 import Hedgehog (MonadGen, Property, forAll, property, (===))
 import Test.Hspec (Spec, describe, it, shouldBe, shouldSatisfy)
 
-import Policeman.Core.Version (Version (..), versionFromIntList, versionFromText, versionToIntList,
-                               versionToText)
+import Policeman.Core.Version (
+  Version (..),
+  versionFromIntList,
+  versionFromText,
+  versionToIntList,
+  versionToText,
+ )
 
+import Data.List (intercalate)
+import Data.Maybe (isNothing)
 import qualified Data.Text as Text
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
-import Data.Maybe (isNothing)
-import Data.List (intercalate)
-
 
 -- | Version parsing unit tests.
 versionSpec :: Spec
 versionSpec = describe "Version parsing" $ do
-    describe "From Text" $ do
-        it "parses 1.2.3.4" $
-            versionFromText "1.2.3.4" `shouldBe` Just (Version 1 2 3 4 "1.2.3.4")
-        it "parses 1.2.3" $
-            versionFromText "1.2.3" `shouldBe` Just (Version 1 2 3 0 "1.2.3")
-        it "parses 1.2" $
-            versionFromText "1.2" `shouldBe` Just (Version 1 2 0 0 "1.2")
-        it "parses 1" $
-            versionFromText "1" `shouldBe` Just (Version 1 0 0 0 "1")
-        it "parses 00" $
-            versionFromText "00" `shouldBe` Just (Version 0 0 0 0 "00")
-        it "does not parse letters" $
-            versionFromText "1.2.3.a" `shouldSatisfy` isNothing
-        it "does not parse trailing dot" $
-            versionFromText "1.2.3." `shouldSatisfy` isNothing
-        it "does not parse leading dot" $
-            versionFromText ".1.2.3" `shouldSatisfy` isNothing
-    describe "From List of Ints" $ do
-        it "parses [1,2,3,4]" $
-            versionFromIntList [1,2,3,4] `shouldBe` Just (Version 1 2 3 4 "1.2.3.4")
-        it "parses [1,2,3]" $
-            versionFromIntList [1,2,3] `shouldBe` Just (Version 1 2 3 0 "1.2.3")
-        it "parses [1,2]" $
-            versionFromIntList [1,2] `shouldBe` Just (Version 1 2 0 0 "1.2")
-        it "parses [1]" $
-            versionFromIntList [1] `shouldBe` Just (Version 1 0 0 0 "1")
-        it "parses [1,2,3,4,5]" $
-            versionFromIntList [1,2,3,4,5] `shouldBe` Just (Version 1 2 3 4 "1.2.3.4.5")
+  describe "From Text" $ do
+    it "parses 1.2.3.4" $
+      versionFromText "1.2.3.4" `shouldBe` Just (Version 1 2 3 4 "1.2.3.4")
+    it "parses 1.2.3" $
+      versionFromText "1.2.3" `shouldBe` Just (Version 1 2 3 0 "1.2.3")
+    it "parses 1.2" $
+      versionFromText "1.2" `shouldBe` Just (Version 1 2 0 0 "1.2")
+    it "parses 1" $
+      versionFromText "1" `shouldBe` Just (Version 1 0 0 0 "1")
+    it "parses 00" $
+      versionFromText "00" `shouldBe` Just (Version 0 0 0 0 "00")
+    it "does not parse letters" $
+      versionFromText "1.2.3.a" `shouldSatisfy` isNothing
+    it "does not parse trailing dot" $
+      versionFromText "1.2.3." `shouldSatisfy` isNothing
+    it "does not parse leading dot" $
+      versionFromText ".1.2.3" `shouldSatisfy` isNothing
+  describe "From List of Ints" $ do
+    it "parses [1,2,3,4]" $
+      versionFromIntList [1, 2, 3, 4] `shouldBe` Just (Version 1 2 3 4 "1.2.3.4")
+    it "parses [1,2,3]" $
+      versionFromIntList [1, 2, 3] `shouldBe` Just (Version 1 2 3 0 "1.2.3")
+    it "parses [1,2]" $
+      versionFromIntList [1, 2] `shouldBe` Just (Version 1 2 0 0 "1.2")
+    it "parses [1]" $
+      versionFromIntList [1] `shouldBe` Just (Version 1 0 0 0 "1")
+    it "parses [1,2,3,4,5]" $
+      versionFromIntList [1, 2, 3, 4, 5] `shouldBe` Just (Version 1 2 3 4 "1.2.3.4.5")
 
 -- | Parsing to/from 'Text' works properly.
 versionRoundtripText :: Property
 versionRoundtripText = property $ do
-    preVersion <- forAll genVersion
-    let version = preVersion { versionText = versionToText preVersion }
-    versionFromText (versionToText version) === Just version
+  preVersion <- forAll genVersion
+  let version = preVersion{versionText = versionToText preVersion}
+  versionFromText (versionToText version) === Just version
 
 -- | Parsing to/from '[Int]' works properly.
 versionRoundtripInts :: Property
 versionRoundtripInts = property $ do
-    version <- forAll genVersion
-    versionFromIntList (versionToIntList version) === Just version
+  version <- forAll genVersion
+  versionFromIntList (versionToIntList version) === Just version
 
 -- | Generates random version.
-genVersion :: forall m . (MonadGen m) => m Version
+genVersion :: forall m. (MonadGen m) => m Version
 genVersion = do
-    versionA <- genInt
-    versionB <- genInt
-    versionC <- genInt
-    versionD <- genInt
-    pure Version
-        { versionText = Text.pack . intercalate "." $ map show
-            [ versionA
-            , versionB
-            , versionC
-            , versionD
-            ]
-        , ..
-        }
-  where
-    genInt :: m Int
-    genInt = Gen.int (Range.constant 0 20_000)
+  versionA <- genInt
+  versionB <- genInt
+  versionC <- genInt
+  versionD <- genInt
+  pure
+    Version
+      { versionText =
+          Text.pack . intercalate "." $
+            map
+              show
+              [ versionA
+              , versionB
+              , versionC
+              , versionD
+              ]
+      , ..
+      }
+ where
+  genInt :: m Int
+  genInt = Gen.int (Range.constant 0 20_000)

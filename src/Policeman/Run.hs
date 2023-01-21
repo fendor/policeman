@@ -1,13 +1,19 @@
-module Policeman.Run
-    ( runPoliceman
-    ) where
+module Policeman.Run (
+  runPoliceman,
+) where
 
-import Control.Monad.Except (throwError, ExceptT, runExceptT)
+import Control.Monad.Except (ExceptT, runExceptT, throwError)
 import Control.Monad.Trans.Except (withExceptT)
 import System.Directory (getCurrentDirectory)
 
-import Policeman.Cabal (CabalError (..), extractExposedModules, extractPackageName,
-                        extractPackageVersion, findCabalDescription, parseCabalFile)
+import Policeman.Cabal (
+  CabalError (..),
+  extractExposedModules,
+  extractPackageName,
+  extractPackageVersion,
+  findCabalDescription,
+  parseCabalFile,
+ )
 import Policeman.Cli (CliArgs (..))
 import Policeman.Core.Hie (hieFilesToHashMap)
 import Policeman.Core.Package (Module, PackageName (..), PackageStructure (..))
@@ -18,71 +24,73 @@ import Policeman.Download.Hackage (downloadFromHackage, getLatestHackageCabalFil
 import Policeman.Evaluate (eval)
 import Policeman.Hie (createHieFiles)
 
-import qualified Data.Set as Set
 import Control.Monad.IO.Class (liftIO)
-
+import qualified Data.Set as Set
 
 data PolicemanError
-    = DError DownloadError
-    | CError CabalError
-    deriving stock (Show)
+  = DError DownloadError
+  | CError CabalError
+  deriving stock (Show)
 
 -- | Runs the tool based on the CLI input.
 runPoliceman :: CliArgs -> IO ()
-runPoliceman CliArgs{..} = runExceptT findNextVersion >>= \case
+runPoliceman CliArgs{..} =
+  runExceptT findNextVersion >>= \case
     Left err -> print err
     Right () -> pure ()
-  where
-    findNextVersion :: ExceptT PolicemanError IO ()
-    findNextVersion = do
-        curPackagePath <- liftIO getCurrentDirectory
-        (packageName, curModules) <- getPackageInfo curPackagePath
+ where
+  findNextVersion :: ExceptT PolicemanError IO ()
+  findNextVersion = do
+    curPackagePath <- liftIO getCurrentDirectory
+    (packageName, curModules) <- getPackageInfo curPackagePath
 
-        let runDiff :: Version -> ExceptT PolicemanError IO ()
-            runDiff prevVer = diffWith prevVer packageName curModules
+    let runDiff :: Version -> ExceptT PolicemanError IO ()
+        runDiff prevVer = diffWith prevVer packageName curModules
 
-        -- TODO: check for invalid version separately
-        case cliArgsPrev >>= versionFromText of
-            Nothing   -> getLatestHackageVersion packageName >>= runDiff
-            Just prev -> runDiff prev
+    -- TODO: check for invalid version separately
+    case cliArgsPrev >>= versionFromText of
+      Nothing -> getLatestHackageVersion packageName >>= runDiff
+      Just prev -> runDiff prev
 
 getLatestHackageVersion :: PackageName -> ExceptT PolicemanError IO Version
 getLatestHackageVersion packageName = do
-    cabalContent <- withExceptT DError $ getLatestHackageCabalFileContent packageName
-    packageDesc  <- withExceptT CError $ parseCabalFile cabalContent
-    case (extractPackageVersion packageDesc) of
-        Nothing -> throwError $ CError CabalParseError
-        Just v -> pure v
+  cabalContent <- withExceptT DError $ getLatestHackageCabalFileContent packageName
+  packageDesc <- withExceptT CError $ parseCabalFile cabalContent
+  case (extractPackageVersion packageDesc) of
+    Nothing -> throwError $ CError CabalParseError
+    Just v -> pure v
 
-diffWith
-    :: Version
-    -> PackageName
-    -> [Module]
-    -> ExceptT PolicemanError IO ()
+diffWith ::
+  Version ->
+  PackageName ->
+  [Module] ->
+  ExceptT PolicemanError IO ()
 diffWith prevVersion packageName curModules = do
-    prevPackagePath <- withExceptT DError $ downloadFromHackage packageName prevVersion
-    (_, prevModules) <- getPackageInfo prevPackagePath
+  prevPackagePath <- withExceptT DError $ downloadFromHackage packageName prevVersion
+  (_, prevModules) <- getPackageInfo prevPackagePath
 
-    prevHieFiles <- liftIO $ createHieFiles prevPackagePath
-    curHieFiles  <- liftIO $ createHieFiles "."
+  prevHieFiles <- liftIO $ createHieFiles prevPackagePath
+  curHieFiles <- liftIO $ createHieFiles "."
 
-    let prevPackageStructure = PackageStructure
-            { psModules    = Set.fromList prevModules
-            , psModulesMap = hieFilesToHashMap prevHieFiles
-            }
+  let prevPackageStructure =
+        PackageStructure
+          { psModules = Set.fromList prevModules
+          , psModulesMap = hieFilesToHashMap prevHieFiles
+          }
 
-    let curPackageStructure = PackageStructure
-            { psModules    = Set.fromList curModules
-            , psModulesMap = hieFilesToHashMap curHieFiles
-            }
+  let curPackageStructure =
+        PackageStructure
+          { psModules = Set.fromList curModules
+          , psModulesMap = hieFilesToHashMap curHieFiles
+          }
 
-    let diff = comparePackageStructures prevPackageStructure curPackageStructure
-    let evaluation = eval prevVersion diff
-    liftIO $ prettyPrintDiff prevVersion evaluation diff
+  let diff = comparePackageStructures prevPackageStructure curPackageStructure
+  let evaluation = eval prevVersion diff
+  liftIO $ prettyPrintDiff prevVersion evaluation diff
 
 getPackageInfo :: FilePath -> ExceptT PolicemanError IO (PackageName, [Module])
 getPackageInfo path = withExceptT CError $ do
-    packageDesc <- findCabalDescription path
-    let name = extractPackageName packageDesc
-    let modules = extractExposedModules packageDesc
-    pure (name, modules)
+  packageDesc <- findCabalDescription path
+  let name = extractPackageName packageDesc
+  let modules = extractExposedModules packageDesc
+  pure (name, modules)

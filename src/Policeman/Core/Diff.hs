@@ -1,34 +1,32 @@
-{- |
--}
-
-module Policeman.Core.Diff
-    ( PackageDiff (..)
-    , Diff (..)
-    , emptyDiff
-    , hasDiffAdded
-    , hasDiffDeleted
-    ) where
+module Policeman.Core.Diff (
+  PackageDiff (..),
+  Diff (..),
+  emptyDiff,
+  hasDiffAdded,
+  hasDiffDeleted,
+) where
 
 import Policeman.Core.Package (Export, Module)
 
+import Data.HashMap.Strict (HashMap)
 import Data.Set (Set)
 import qualified Data.Set as Set
-import Data.HashMap.Strict (HashMap)
-
 
 data PackageDiff = PackageDiff
-    { pdModule :: !(Diff Module)
-    , pdExport :: !(HashMap Module (Diff Export))
-    }
+  { pdModule :: !(Diff Module)
+  , pdExport :: !(HashMap Module (Diff Export))
+  }
 
 data Diff a = Diff
-    { diffAdded   :: !(Set a)
-    , diffDeleted :: !(Set a)
-    } deriving stock (Eq)
+  { diffAdded :: !(Set a)
+  , diffDeleted :: !(Set a)
+  }
+  deriving stock (Eq)
 
 emptyDiff :: Diff a
-emptyDiff = Diff
-    { diffAdded   = Set.empty
+emptyDiff =
+  Diff
+    { diffAdded = Set.empty
     , diffDeleted = Set.empty
     }
 
